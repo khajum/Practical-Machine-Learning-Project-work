@@ -1,0 +1,77 @@
+---
+title: "Machine Learning Project"
+author: "wpshen"
+date: "April 8, 2016"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Summary
+
+In this final project of the Machine Learning class, we will use machine leaning to build models with the Weight Lifting Exercise Dataset from Human Activity Recognition website (http://groupware.les.inf.puc-rio.br/har). The dataset will be splitted (60/40) into a training and testing dataset. The goal is to predict the manner in which the subject performed the exercise, which is the "classe" variable in the training set. Three algorithms are picked to fit the models, they are 
+
+1. Recursive Partitioning and Regression Trees, 'rpart'
+2. Gradient Boosting Machine, 'gbm'
+3. Random Forest, 'rf'
+
+The fitted models will be compared by their out of sample errors. The best model then will be used to predict the outcome of a 20 different test cases. 
+
+## Building the models
+
+```{r}
+library(caret);library(rpart);library(klaR);library(gbm);
+library(survival);library(randomForest)
+set.seed(33563)
+data <- read.csv("pml-training.csv", na.strings = c("", "#DIV/0!", "NA"), 
+                 row.names=1, stringsAsFactors=FALSE)
+data <- data[,colSums(is.na(data))<0.9*nrow(data)] # remove the column is 90% NA
+data$classe <- factor(data$classe)
+inTrain <- createDataPartition(data$classe, p=0.6, list=FALSE)
+training <- data[inTrain,]
+testing <- data[-inTrain,]
+
+accu <- numeric()
+
+# 1. Recursive Partitioning and Regression Trees
+fit1 <- train(classe~., method="rpart", data=training)
+pred1 <- predict(fit1, testing)
+c1 <- confusionMatrix(data = pred1, testing$classe)
+accu[length(accu)+1] <- c1$overall["Accuracy"]
+c1$table
+
+# 2. Gradient Boosting Machine
+fit2 <- train(classe~., method="gbm", data=training, verbose=FALSE)
+pred2 <- predict(fit2, testing)
+c2 <- confusionMatrix(data = pred2, testing$classe)
+accu[length(accu)+1] <- c2$overall["Accuracy"]
+c2$table
+
+# 3. Random Forest
+fit3 <- train(classe~., method="rf", data=training)
+pred3 <- predict(fit3, testing)
+c3 <- confusionMatrix(data = pred3, testing$classe)
+accu[length(accu)+1] <- c3$overall["Accuracy"]
+c3$table
+```
+
+Now, let's compare the out of sample error among the three models,
+
+```{r}
+data.frame(Model=c("Recursive Partitioning and Regression Trees", "Gradient Boosting Machine", "Random Forest"), Accuracy=accu, OutofSampleError=1-accu)
+```
+
+As shown, the "Random Forest" model has the smallest Out of Sample Error, i.e. 0.0009. Hence, it will be used to predict the results of the 20 test cases.
+
+## Predicting the 20 test cases
+
+```{r}
+valdata <- read.csv("pml-testing.csv", na.strings = c("", "#DIV/0!", "NA"), 
+                    row.names=1, stringsAsFactors=FALSE)
+valdata <- valdata[,colSums(is.na(valdata))<0.9*nrow(valdata)] # remove the column is 90% NA
+pred <- predict(fit3, valdata[,-59])
+pred
+```
+
